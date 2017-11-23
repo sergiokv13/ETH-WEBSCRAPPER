@@ -1,0 +1,87 @@
+all_links = []
+browser = Watir::Browser.new(:chrome)
+browser.goto("https://www.empleo.gob.mx/9-busqueda-de-ofertas-de-empleo-en-ciudad-de-mexico")
+
+(1..100).each do |c|
+
+	if c!=1 && c!=11 && c!=21 && c!=31 && c!=41 && c!=51 && c!=61 && c!=71 && c!=81 && c!=91
+		browser.link(:text => c.to_s).when_present.click
+		sleep 5.seconds
+	end
+
+	doc = Nokogiri::HTML.parse(browser.html)
+	table  = doc.css("table").first
+	rows = table.css("tr[class='odd']")
+	rows2 = table.css("tr[class='odd2']")
+	rows.map do |row|
+		all_links.push([row.css("a").first.text,row.css("td[data-title='Fecha de publicación']").text,row.css("a")[0]["href"]])
+	end
+
+	rows2.map do |row|
+		all_links.push([row.css("a").first.text,row.css("td[data-title='Fecha de publicación']").text,row.css("a")[0]["href"]])
+	end
+
+	if c==100
+		break
+	end
+
+	if c%10 == 0
+		browser.link(:text => "Siguiente").when_present.click
+	end
+end
+
+
+all_links.each do |link|
+
+ if Job.where(:url => link[2]).count == 0
+	current_job = Job.new
+	browser.goto("https://www.empleo.gob.mx/" + link[2])
+	doc = Nokogiri::HTML.parse(browser.html)
+	spans = doc.css("span")
+	images = doc.css("img")
+	other = doc.css("div.row")[5]
+	other = other.css("div.panel-body")
+
+	current_job.name = link[0]
+	current_job.offer_publication = link[1]
+	current_job.url = link[2]
+	current_job.monthly_salary = spans[5].text
+	current_job.location = spans[6].text
+	current_job.contract_type = spans[7].text
+	current_job.offer_expiration = spans[8].text
+	current_job.working_days = spans[9].text
+	current_job.schedule = spans[10].text
+	current_job.empresa = images[4].attributes.values[1].value
+	current_job.degrees = other[7].text.tr("\t\n",'').sub("Estudios Solicitados:",'')
+
+	counter = 8
+	while !other[counter].text.include? "Competencias transversales"
+		counter = counter+1
+	end
+	current_job.skills = other[counter].text.tr("\t\n",'').sub("Competencias transversales:",'')
+	
+	while !other[counter].text.include? "Idiomas"
+		counter = counter+1
+	end
+	current_job.lenguages = other[counter].text.tr("\t\n",'').sub("Idiomas:",'')
+
+	while !other[counter].text.include? "Prestaciones"
+		counter = counter+1
+	end
+	current_job.bussiness_offers = other[counter].text.tr("\t\n",'').sub("Prestaciones:",'')
+
+
+	while !other[counter].text.include? "Número de plazas"
+		counter = counter+1
+	end
+	current_job.available_spots = other[counter].text.tr("\t\n ",'').sub("Númerodeplazas:",'')
+
+	counter = counter+1
+	current_job.functions = other[counter].text.tr("\t\n",'')
+
+	counter = counter+1
+	current_job.observations = other[counter].text.tr("\t\n",'')
+
+	current_job.save
+ end
+end
