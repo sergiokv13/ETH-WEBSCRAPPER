@@ -39,7 +39,7 @@ all_links.each do |link|
 	doc = Nokogiri::HTML.parse(browser.html)
 	spans = doc.css("span")
 	images = doc.css("img")
-	other = doc.css("div.row")[5]
+	other = doc.css("div.row")[6]
 	other = other.css("div.panel-body")
 
 	current_job.name = link[0]
